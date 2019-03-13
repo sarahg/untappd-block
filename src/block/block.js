@@ -12,6 +12,9 @@ import './editor.scss';
 const { __ } = wp.i18n; // Import __() from wp.i18n
 const { registerBlockType } = wp.blocks; // Import registerBlockType() from wp.blocks
 
+var el = wp.element.createElement;
+var Components = wp.components;
+
 /**
  * Register: aa Gutenberg Block.
  *
@@ -30,15 +33,12 @@ registerBlockType( 'untappd-block/block-untappd-block', {
 	title: __( 'untappd-block' ), // Block title.
 	icon: 'smiley', // Block icon from Dashicons → https://developer.wordpress.org/resource/dashicons/.
 	category: 'embed', // Block category — Group blocks together based on common traits E.g. common, formatting, layout widgets, embed.
-	keywords: [
-		__( 'untappd-block' ),
-		__( 'CGB Example' ),
-		__( 'create-guten-block' ),
-	],
+	supportHTML: false,
 
 	attributes: {
-		beerID: {
-			type: 'number',
+		url: {
+			type: 'string',
+
 		},
 	},
 
@@ -51,23 +51,56 @@ registerBlockType( 'untappd-block/block-untappd-block', {
 	 * @link https://wordpress.org/gutenberg/handbook/block-api/block-edit-save/
 	 */
 	edit: function( props ) {
-		// Creates a <p class='wp-block-cgb-block-untappd-block'></p>.
-		return (
-			<div className={ props.className }>
-				<p>— Hello from the backend.</p>
-				<p>
-					CGB BLOCK: <code>untappd-block</code> is a new Gutenberg block
-				</p>
-				<p>
-					It was created via{ ' ' }
-					<code>
-						<a href="https://github.com/ahmadawais/create-guten-block">
-							create-guten-block
-						</a>
-					</code>.
-				</p>
-			</div>
-		);
+			var url = props.attributes.url || '',
+				focus = props.focus;
+			// retval is our return value for the callback.
+			var retval = [];
+			// When the block is focus or there's no URL value,
+			// show the text input control so the user can enter a URL.
+			if ( !! focus || ! url.length ) {
+				// Instantiate a TextControl element
+				var controlOptions = {
+					// Existing 'url' value for the block.
+					value: url,
+					// When the text input value is changed, we need to
+					// update the 'url' attribute to propagate the change.
+					onChange: function( newVal ) {
+						props.setAttributes({
+							url: newVal
+						});
+					},
+					placeholder: __( 'Enter the beer ID from Untappd' ),
+				};
+				retval.push(
+					// el() is a function to instantiate a new element.
+					el( Components.TextControl, controlOptions )
+				);
+			}
+
+			// @todo pull client ID/secret from somewhere secure
+			var apiUrl = 'https://api.untappd.com/v4/beer/info/' + url.trim(/\/$/) + '?client_id=CLIENTID&client_secret=CLIENTSECRET';
+
+			// Only add preview UI when there's a URL entered.
+			if ( url.length ) {
+				// @todo retrieve API data and pull out whatever we're going to display
+
+				// setTimeout is used to delay the Untappd API request
+				// until after the block is initially rendered. From the response,
+				// we update the rendered div.
+				/*setTimeout(function(){
+					// @todo pull ID/secret from somewhere secure
+					jQuery.getJSON(apiUrl,
+						function(data){
+							var div = jQuery('#'+id);
+							div.html('');
+							div.append(data.div);
+						}
+					);
+				}, 10 );*/
+				retval.push( el( 'p', null, apiUrl ) );
+			}
+
+			return retval;
 	},
 
 	/**
@@ -79,21 +112,13 @@ registerBlockType( 'untappd-block/block-untappd-block', {
 	 * @link https://wordpress.org/gutenberg/handbook/block-api/block-edit-save/
 	 */
 	save: function( props ) {
-		return (
-			<div>
-				<p>— Hello from the frontend.</p>
-				<p>
-					CGB BLOCK: <code>untappd-block</code> is a new Gutenberg block.
-				</p>
-				<p>
-					It was created via{ ' ' }
-					<code>
-						<a href="https://github.com/ahmadawais/create-guten-block">
-							create-guten-block
-						</a>
-					</code>.
-				</p>
-			</div>
-		);
+			var url = props.attributes.url || '';
+			// If there's no URL, don't save any inline HTML.
+			if ( ! url.length ) {
+				return null;
+			}
+			// Include a fallback link for non-JS contexts
+			// and for when the plugin is not activated.
+			return el( 'a', { href: url }, __( 'View beer on Untappd' ) );
 	},
 } );
